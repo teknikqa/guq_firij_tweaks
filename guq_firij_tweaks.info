@@ -1,0 +1,11 @@
+name = GU-Q Firij Tweaks
+description = Customizations to enable certain features for Firij.
+package = GU-Q
+core = 7.x
+
+dependencies[] = views
+
+scripts[] = js/tsi-inlineDisqussions/inlineDisqussions.js
+
+scripts[] = js/guq_firij_tweaks.js
+stylesheets[all][] = js/tsi-inlineDisqussions/inlineDisqussions.css

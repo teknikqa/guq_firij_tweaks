@@ -1,0 +1,146 @@
+<?php
+/**
+ * Implements hook_block_info().
+ */
+function guq_firij_tweaks_block_info() {
+  $blocks['guq_firij_add_repo_item'] = array(
+    'info' => t('GUQ Repository Add Items'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+  $blocks['guq_firij_proj_add_links'] = array(
+    'info' => t('GUQ Project Add Content Links'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+  $blocks['guq_firij_add_project'] = array(
+    'info' => t('GUQ Add Project'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+  $blocks['guq_firij_book_block'] = array(
+    'info' => t('GUQ Project Navigation'),
+    'cache' => DRUPAL_CACHE_GLOBAL,
+  );
+  $blocks['guq_disqus_block'] = array(
+    'info' => t('GUQ Disqus Comments Block'),
+    'cache' => DRUPAL_CACHE_PER_ROLE,
+  );
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function guq_firij_tweaks_block_view($delta = '') {
+  $nid = 0;
+  $block = array();
+  if ($node = menu_get_object()) {
+    // Get the nid
+    $nid = $node->nid;
+    switch ($delta) {
+      case 'guq_firij_add_repo_item':
+        $block['subject'] = '<none>';
+        $block['content'] = guq_firij_tweaks_add_repo_item_render($nid);
+        break;
+      case 'guq_firij_proj_add_links':
+        $block['subject'] = '<none>';
+        $block['content'] = guq_firij_tweaks_project_add_links($node);
+        break;
+      case 'guq_firij_add_project':
+        $block['subject'] = '<none>';
+        $block['content'] = guq_firij_tweaks_add_project_render($nid);
+        break;
+      case 'guq_firij_book_block':
+        $block = guq_firij_tweaks_book_nav_render($node);
+        break;
+      case 'guq_disqus_block':
+        $block['subject'] = '<none>';
+        $block['content'] = '<div class="guq-disqus-wrapper"><button id="disqus-' . $node->nid . '" class="show-comments" href="' . $node->disqus['url'] . '"
+    data-disqus-identifier="' . $node->disqus['identifier'] . '" data-title="' . $node->disqus['title'] . '">Load Disqus comments</button></div>';
+        break;
+    }
+  }
+  return $block;
+}
+
+function guq_firij_tweaks_add_repo_item_render($nid) {
+  $output = '';
+  global $user;
+  if (user_access('Repository Item: Create new content', $user)) {
+    $output = '<div id="book-add-child"><ul class="links list-inline"><li><a href="/node/add/repository-item?field_repository_parent=' . $nid . '">Add an item to this repository</a></li></ul></div>';
+  }
+  return $output;
+}
+
+function guq_firij_tweaks_project_add_links($node) {
+  $output = '';
+  global $user;
+  $nid = $node->nid;
+  $mlid = $node->book['mlid'];
+  $output = '<div id="book-add-child"><ul class="links list-inline">';
+  if (user_access('Timeline Date: Create new content', $user)) {
+    $output .= '<li><a href="/node/add/timeline-date?field_project=' . $nid . '">Add an item to the timeline</a></li>';
+  }
+  if (user_access('Repository: Create new content', $user)) {
+    $output .= '<li><a href="/node/add/repository?parent=' . $mlid . '">Add an new Repository</a></li>';
+  }
+  if (user_access('Research Project Page: Create new content', $user)) {
+    $output .= '<li><a href="/node/add/research-project-page?parent=' . $mlid . '">Add an new page to this Project</a></li>';
+  }
+  $output .= '</ul></div>';
+  return $output;
+}
+
+function guq_firij_tweaks_add_project_render($nid) {
+  $output = '';
+  global $user;
+  if (user_access('Research Project: Create new content', $user)) {
+    $output = '<div id="book-add-child"><ul class="links list-inline"><li><a href="/node/add/project">Create a new Project</a></li></ul></div>';
+  }
+  return $output;
+}
+
+function guq_firij_tweaks_book_nav_render($node) {
+  switch ($node->type) {
+    case 'image_item':
+      $field = field_get_items('node', $node, 'field_repository');
+      $repoid = $field[0]['target_id'];
+      $node = node_load($repoid);
+      break;
+    case 'repository_item':
+      break;
+    default:
+      return;
+  }
+
+  $field = field_get_items('node', $node, 'field_repository_parent');
+  $nid = $field[0]['target_id'];
+  if(!$nid) {
+    return;
+  }
+	$node = node_load($nid);
+	if(isset($node->book)) {
+    $mlid = $node->book['mlid'];
+  }
+  else {
+    return;
+  }
+	$menuname = $node->book['menu_name'];
+	$tree = menu_build_tree($menuname);
+  $block =array();
+  $data = array_shift($tree);
+  $below = $data['below'];
+  foreach ($data['below'] as $key => &$value) {
+    if($value['link']['mlid'] == $mlid) {
+      $value['link']['in_active_trail'] = TRUE;
+    }
+  }
+  $block['subject'] = theme('book_title_link', array('link' => $data['link']));
+  $block['content'] = ($data['below']) ? menu_tree_output($data['below']) : '';
+  return $block;
+}
+
+function guq_firij_tweaks_preprocess_block(&$variables) {
+  if ($variables['block']->module == 'guq_firij_tweaks' && $variables['block']->delta == 'guq_firij_book_block') {
+    $variables['block_html_id'] = drupal_html_id('block-book-navigation');
+    $variables['classes_array'][] = drupal_html_class('block-book');
+  }
+}
